@@ -9,6 +9,7 @@ from pythia.common.constants import GQA_DOWNLOAD_URL
 from pythia.tasks.base_dataset_builder import BaseDatasetBuilder
 from pythia.tasks.vqa.gqa.dataset import GQADataset
 from pythia.utils.general import download_file, get_pythia_root
+from pythia.tasks.concat_dataset import PythiaConcatDataset
 
 
 @registry.register_builder("gqa")
@@ -18,39 +19,21 @@ class GQABuilder(BaseDatasetBuilder):
         self.writer = registry.get("writer")
         self.dataset_class = GQADataset
 
-    def _build(self, dataset_type, config):
-        download_folder = os.path.join(get_pythia_root(), config.data_root_dir, config.data_folder)
-
-        #file_name = GQA_DOWNLOAD_URL.split("/")[-1]
-        #local_filename = os.path.join(download_folder, file_name)
-
-        #extraction_folder = os.path.join(download_folder, ".".join(file_name.split(".")[:-1]))
-        self.data_folder = download_folder
-         
-
-        # Either if the zip file is already present or if there are some
-        # files inside the folder we don't continue download process
-        #if os.path.exists(local_filename):
-        #    self.writer.write("GQA dataset is already present. Skipping download.")
-        #    return
-
-        if os.path.exists(download_folder) and \
-            len(os.listdir(download_folder)) != 0:
-            return
-
-        #self.writer.write("Downloading the GQA dataset now")
-        #download_file(GQA_DOWNLOAD_URL, output_dir=download_folder)
-
-        #self.writer.write("Downloaded. Extracting now. This can take time.")
-        #with zipfile.ZipFile(local_filename, "r") as zip_ref:
-        #    zip_ref.extractall(download_folder)
-
-
     def _load(self, dataset_type, config, *args, **kwargs):
-        self.dataset = GQADataset(
-            dataset_type, config, data_folder=self.data_folder
-        )
+        self.config = config
+
+        image_features = config["image_features"]["object"]
+        self.num_image_features = len(image_features)
+
+        registry.register("num_image_features", self.num_image_features)
+
+        self.dataset = self.prepare_data_set(dataset_type, config)
+
         return self.dataset
+
+    def _build(self, dataset_type, config):
+        # TODO: Build actually here
+        return
 
     def update_registry_for_model(self, config):
         registry.register(
@@ -61,3 +44,42 @@ class GQABuilder(BaseDatasetBuilder):
             self.dataset_name + "_num_final_outputs",
             self.dataset.answer_processor.get_vocab_size(),
         )
+
+    def init_args(self, parser):
+        parser.add_argument_group("GQA task specific arguments")
+        parser.add_argument(
+            "--data_root_dir",
+            type=str,
+            default="../data",
+            help="Root directory for data",
+        )
+        parser.add_argument(
+            "-nfr",
+            "--fast_read",
+            type=bool,
+            default=None,
+            help="Disable fast read and load features on fly",
+        )
+
+    def set_dataset_class(self, cls):
+        self.dataset_class = cls
+
+    def prepare_data_set(self, dataset_type, config):
+        if dataset_type not in config.imdb_files:
+            raise ValueError(
+                "Dataset type {} is not present in "
+                "imdb_files of dataset config".format(dataset_type)
+            )
+
+        imdb_files = config["imdb_files"][dataset_type]
+
+        datasets = []
+
+        for imdb_idx in range(len(imdb_files)):
+            cls = self.dataset_class
+            dataset = cls(dataset_type, imdb_idx, config)
+            datasets.append(dataset)
+
+        dataset = PythiaConcatDataset(datasets)
+
+        return dataset

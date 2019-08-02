@@ -1,0 +1,44 @@
+task_attributes:
+    vqa:
+        datasets:
+        - gqa
+        dataset_attributes:
+            gqa:
+                data_root_dir: ../data
+                data_folder: GQA_PP
+                image_features:
+                  train:
+                    - open_images/detectron_fix_100/fc6/train,open_images/resnet152/train
+                  val:
+                    - open_images/detectron_fix_100/fc6/train,open_images/resnet152/train
+                  test:
+                    - open_images/detectron_fix_100/fc6/test,open_images/resnet152/test
+                build_attributes:
+                    min_count: 1
+                    split_regex: " "
+                    keep:
+                        - ";"
+                        - ","
+                    remove:
+                        - "?"
+                        - "."
+                processors:
+                    text_processor:
+                        type: vocab
+                        params:
+                            max_length: 10
+                            vocab:
+                                type: random
+                                vocab_file: vocabs/vocabulary_gqa.txt
+                        preprocessor:
+                            type: simple_sentence
+                            params: {}
+                    answer_processor:
+                        type: multi_hot_answer_from_vocab
+                        params:
+                            num_answers: 1
+                            # Vocab file is relative to [data_root_dir]/[data_folder]
+                            vocab_file: vocabs/answers_gqa.txt
+                            preprocessor:
+                                type: simple_word
+                                params: {}

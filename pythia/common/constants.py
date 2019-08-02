@@ -11,4 +11,8 @@ CLEVR_DOWNLOAD_URL = (
     "https://dl.fbaipublicfiles.com/clevr/CLEVR_v1.0.zip"
 )
 
+GQA_DOWNLOAD_URL = (
+    "https://nlp.stanford.edu/data/gqa/questions1.2.zip"
+)
+
 DOWNLOAD_CHUNK_SIZE = 1024 * 1024

@@ -10,6 +10,8 @@ from pythia.common.registry import registry
 from pythia.common.sample import Sample
 from pythia.tasks.base_dataset import BaseDataset
 from pythia.utils.general import get_pythia_root
+from pythia.tasks.features_dataset import FeaturesDataset
+from pythia.tasks.image_database import ImageDatabase
 from pythia.utils.text_utils import VocabFromText, tokenize
 from pythia.utils.distributed_utils import is_main_process, synchronize
 
@@ -23,13 +25,10 @@ _CONSTANTS = {
     "answer_key": "answer",
     "train_dataset_key": "train",
     "images_folder": "allImages",
-    "vocabs_folder": "vocabs"
 }
 
 _TEMPLATES = {
-    "data_folder_missing_error": "Data folder {} for GQA is not present.",
-    "question_json_file": "CLEVR_{}_questions.json",
-    "vocab_file_template": "{}_{}_vocab.txt"
+    "data_folder_missing_error": "Data folder {} for GQA is not present."
 }
 
 
@@ -44,105 +43,126 @@ class GQADataset(BaseDataset):
                      replaces default based on data_root_dir and data_folder in config.
 
     """
-    def __init__(self, dataset_type, config, data_folder=None, *args, **kwargs):
-        super().__init__(_CONSTANTS["dataset_key"], dataset_type, config)
-        self._data_folder = data_folder
-        self._data_root_dir = os.path.join(get_pythia_root(), config.data_root_dir)
 
-        if not self._data_folder:
-            self._data_folder = os.path.join(self._data_root_dir, config.data_folder)
+    def __init__(self, dataset_type, imdb_file_index, config, *args, **kwargs):
+        super().__init__("gqa", dataset_type, config)
+        imdb_files = self.config.imdb_files
 
-        if not os.path.exists(self._data_folder):
-            raise RuntimeError(_TEMPLATES["data_folder_missing_error"].format(self._data_folder))
-
-        # Check if the folder was actually extracted in the subfolder
-        if config.data_folder in os.listdir(self._data_folder):
-            self._data_folder = os.path.join(self._data_folder, config.data_folder)
-
-        if len(os.listdir(self._data_folder)) == 0:
-            raise FileNotFoundError(_CONSTANTS["empty_folder_error"])
-
-        self._load()
-
-    def _load(self):
-        self.image_path = os.path.join(self._data_folder, _CONSTANTS["images_folder"], self._dataset_type)
-
-        with open(
-            os.path.join(
-                self._data_folder,
-                _CONSTANTS["questions_folder"],
-                _TEMPLATES["question_json_file"].format(self._dataset_type),
+        if dataset_type not in imdb_files:
+            raise ValueError(
+                "Dataset type {} is not present in "
+                "imdb_files of dataset config".format(dataset_type)
             )
-        ) as f:
-            self.questions = json.load(f)[_CONSTANTS["questions_key"]]
 
-            # Vocab should only be built in main process, as it will repetition of same task
-            if is_main_process():
-                self._build_vocab(self.questions, _CONSTANTS["question_key"])
-                self._build_vocab(self.questions, _CONSTANTS["answer_key"])
-            synchronize()
+        self.imdb_file = imdb_files[dataset_type][imdb_file_index]
+        self.imdb_file = self._get_absolute_path(self.imdb_file)
+        self.imdb = ImageDatabase(self.imdb_file)
 
-    def __len__(self):
-        return len(self.questions)
+        self.kwargs = kwargs
 
-    def _get_vocab_path(self, attribute):
-        return os.path.join(
-            self._data_root_dir, _CONSTANTS["vocabs_folder"],
-            _TEMPLATES["vocab_file_template"].format(self._name, attribute)
-        )
+        self.image_depth_first = self.config.image_depth_first
+        self._should_fast_read = self.config.fast_read
 
-    def _build_vocab(self, questions, attribute):
-        # Vocab should only be built from "train" as val and test are not observed in training
-        if self._dataset_type != _CONSTANTS["train_dataset_key"]:
+        self._use_features = False
+        if hasattr(self.config, "image_features"):
+            self._use_features = True
+            self.features_max_len = self.config.features_max_len
+
+            all_image_feature_dirs = self.config.image_features["objects"]
+            curr_image_features_dir = all_image_feature_dirs[imdb_file_index]
+            curr_image_features_dir = curr_image_features_dir.split(",")
+            curr_image_features_dir = self._get_absolute_path(curr_image_features_dir)
+
+            self.features_db = FeaturesDataset(
+                "coco",
+                directories=curr_image_features_dir,
+                depth_first=self.image_depth_first,
+                max_features=self.features_max_len,
+                fast_read=self._should_fast_read,
+                imdb=self.imdb,
+            )
+
+    def _get_absolute_path(self, paths):
+        if isinstance(paths, list):
+            return [self._get_absolute_path(path) for path in paths]
+        elif isinstance(paths, str):
+            if not os.path.isabs(paths):
+                pythia_root = get_pythia_root()
+                paths = os.path.join(pythia_root, self.config.data_root_dir, paths)
+            return paths
+        else:
+            raise TypeError(
+                "Paths passed to dataset should either be " "string or list"
+            )
+
+    def try_fast_read(self):
+        # Don't fast read in case of test set.
+        if self._dataset_type == "test":
             return
 
-        vocab_file = self._get_vocab_path(attribute)
-
-        # Already exists, no need to recreate
-        if os.path.exists(vocab_file):
-            return
-
-        # Create necessary dirs if not present
-        os.makedirs(os.path.dirname(vocab_file), exist_ok=True)
-
-        sentences = [question[attribute] for question in questions]
-        build_attributes = self.config.build_attributes
-
-        # Regex is default one in tokenize i.e. space
-        kwargs = {
-            "min_count": build_attributes.get("min_count", 1),
-            "keep": build_attributes.get("keep", [";", ","]),
-            "remove": build_attributes.get("remove", ["?", "."])
-        }
-
-        if attribute == _CONSTANTS["answer_key"]:
-            kwargs["only_unk_extra"] = False
-
-        vocab = VocabFromText(sentences, **kwargs)
-
-        with open(vocab_file,"w") as f:
-            f.write("\n".join(vocab.word_list))
+        if hasattr(self, "_should_fast_read") and self._should_fast_read is True:
+            self.writer.write(
+                "Starting to fast read {} {} dataset".format(
+                    self._name, self._dataset_type
+                )
+            )
+            self.cache = {}
+            for idx in tqdm.tqdm(
+                range(len(self.imdb)), miniters=100, disable=not is_main_process()
+            ):
+                self.cache[idx] = self.load_item(idx)
 
     def get_item(self, idx):
-        data = self.questions[idx]
+        if self._should_fast_read is True and self._dataset_type != "test":
+            return self.cache[idx]
+        else:
+            return self.load_item(idx)
 
-        # Each call to get_item from dataloader returns a Sample class object which
-        # collated by our special batch collator to a SampleList which is basically
-        # a attribute based batch in layman terms
+    def load_item(self, idx):
+        sample_info = self.imdb[idx]
         current_sample = Sample()
 
-        question = data["question"]
-        tokens = tokenize(question, keep=[";", ","], remove=["?", "."])
-        processed = self.text_processor({"tokens": tokens})
-        current_sample.text = processed["text"]
+        text_processor_argument = {"tokens": sample_info["question_tokens"]}
 
-        processed = self.answer_processor({"answers": [data["answer"]]})
-        current_sample.answers = processed["answers"]
-        current_sample.targets = processed["answers_scores"]
+        processed_question = self.text_processor(text_processor_argument)
 
-        image_path = os.path.join(self.image_path, data["image_filename"])
-        image = np.true_divide(Image.open(image_path).convert("RGB"), 255)
-        image = image.astype(np.float32)
-        current_sample.image = torch.from_numpy(image.transpose(2, 0, 1))
+        current_sample.text = processed_question["text"]
+        current_sample.question_id = torch.tensor(
+            sample_info["question_id"], dtype=torch.int
+        )
+
+        if isinstance(sample_info["image_id"], int):
+            current_sample.image_id = torch.tensor(
+                sample_info["image_id"], dtype=torch.int
+            )
+        else:
+            current_sample.image_id = sample_info["image_id"]
+
+        current_sample.text_len = torch.tensor(
+            len(sample_info["question_tokens"]), dtype=torch.int
+        )
+
+        if self._use_features is True:
+            features = self.features_db[idx]
+            current_sample.update(features)
+
+        # # Depending on whether we are using soft copy this can add
+        # # dynamic answer space
+        # current_sample = self.add_answer_info(sample_info, current_sample)
 
         return current_sample
+
+    def add_answer_info(self, sample_info, sample):
+        if "answers" in sample_info:
+            answers = sample_info["answers"]
+            answer_processor_arg = {"answers": answers}
+
+            processed_soft_copy_answers = self.answer_processor(answer_processor_arg)
+
+            sample.answers = processed_soft_copy_answers["answers"]
+            sample.targets = processed_soft_copy_answers["answers_scores"]
+
+        return sample
+
+    def idx_to_answer(self, idx):
+        return self.answer_processor.convert_idx_to_answer(idx)

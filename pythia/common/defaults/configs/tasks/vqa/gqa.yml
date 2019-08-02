@@ -6,13 +6,18 @@ task_attributes:
             gqa:
                 data_root_dir: ../data
                 data_folder: GQA_PP
-                image_features:
+                imdb_files:
                   train:
-                    - open_images/detectron_fix_100/fc6/train,open_images/resnet152/train
+                    - imdb_train_balanced.npy
                   val:
-                    - open_images/detectron_fix_100/fc6/train,open_images/resnet152/train
+                    - imdb_val_balanced.npy
                   test:
-                    - open_images/detectron_fix_100/fc6/test,open_images/resnet152/test
+                    - imdb_test_balanced.npy
+                image_features:
+                  object:
+                    - objects/
+                  spatial:
+                    - spatial/
                 build_attributes:
                     min_count: 1
                     split_regex: " "
@@ -26,7 +31,7 @@ task_attributes:
                     text_processor:
                         type: vocab
                         params:
-                            max_length: 10
+                            max_length: 14
                             vocab:
                                 type: random
                                 vocab_file: vocabs/vocabulary_gqa.txt

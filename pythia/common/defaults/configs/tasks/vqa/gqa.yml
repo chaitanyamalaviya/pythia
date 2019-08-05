@@ -6,27 +6,20 @@ task_attributes:
             gqa:
                 data_root_dir: ../data
                 data_folder: GQA_PP
+                image_depth_first: false
+                fast_read: false
                 imdb_files:
                   train:
-                    - imdb_train_balanced.npy
+                    - imdb/gqa/imdb_train_balanced.npy
                   val:
-                    - imdb_val_balanced.npy
+                    - imdb/gqa/imdb_val_balanced.npy
                   test:
-                    - imdb_test_balanced.npy
+                    - imdb/gqa/imdb_test_balanced.npy
                 image_features:
                   object:
                     - objects/
                   spatial:
                     - spatial/
-                build_attributes:
-                    min_count: 1
-                    split_regex: " "
-                    keep:
-                        - ";"
-                        - ","
-                    remove:
-                        - "?"
-                        - "."
                 processors:
                     text_processor:
                         type: vocab
@@ -39,7 +32,7 @@ task_attributes:
                             type: simple_sentence
                             params: {}
                     answer_processor:
-                        type: multi_hot_answer_from_vocab
+                        type: vqa_answer
                         params:
                             num_answers: 1
                             # Vocab file is relative to [data_root_dir]/[data_folder]

@@ -20,7 +20,7 @@ task_attributes:
                   objects:
                     - objects/
                   spatial:
-                    - spatial/
+                    - GQA_PP/spatial/
                 processors:
                     text_processor:
                         type: vocab

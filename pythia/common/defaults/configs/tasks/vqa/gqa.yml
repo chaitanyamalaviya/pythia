@@ -8,6 +8,7 @@ task_attributes:
                 data_folder: GQA_PP
                 image_depth_first: false
                 fast_read: false
+                features_max_len: 100
                 imdb_files:
                   train:
                     - imdb/gqa/imdb_train_balanced.npy
@@ -16,7 +17,7 @@ task_attributes:
                   test:
                     - imdb/gqa/imdb_test_balanced.npy
                 image_features:
-                  object:
+                  objects:
                     - objects/
                   spatial:
                     - spatial/
@@ -27,7 +28,7 @@ task_attributes:
                             max_length: 14
                             vocab:
                                 type: random
-                                vocab_file: vocabs/vocabulary_gqa.txt
+                                vocab_file: GQA_PP/vocabulary_gqa.txt
                         preprocessor:
                             type: simple_sentence
                             params: {}
@@ -36,7 +37,7 @@ task_attributes:
                         params:
                             num_answers: 1
                             # Vocab file is relative to [data_root_dir]/[data_folder]
-                            vocab_file: vocabs/answers_gqa.txt
+                            vocab_file: GQA_PP/answers_gqa.txt
                             preprocessor:
                                 type: simple_word
                                 params: {}

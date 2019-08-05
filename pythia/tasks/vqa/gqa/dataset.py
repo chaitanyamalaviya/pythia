@@ -95,6 +95,9 @@ class GQADataset(BaseDataset):
                 "Paths passed to dataset should either be " "string or list"
             )
 
+    def __len__(self):
+        return len(self.imdb)
+
     def try_fast_read(self):
         # Don't fast read in case of test set.
         if self._dataset_type == "test":
@@ -127,16 +130,18 @@ class GQADataset(BaseDataset):
         processed_question = self.text_processor(text_processor_argument)
 
         current_sample.text = processed_question["text"]
+        q_id = int(sample_info["question_id"])
         current_sample.question_id = torch.tensor(
-            sample_info["question_id"], dtype=torch.int
+            q_id, dtype=torch.int
         )
 
-        if isinstance(sample_info["image_id"], int):
+        img_id = int(sample_info["image_id"])
+        if isinstance(img_id, int):
             current_sample.image_id = torch.tensor(
-                sample_info["image_id"], dtype=torch.int
+                img_id, dtype=torch.int
             )
         else:
-            current_sample.image_id = sample_info["image_id"]
+            current_sample.image_id = img_id
 
         current_sample.text_len = torch.tensor(
             len(sample_info["question_tokens"]), dtype=torch.int

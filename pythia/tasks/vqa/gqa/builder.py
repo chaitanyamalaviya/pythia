@@ -22,7 +22,7 @@ class GQABuilder(BaseDatasetBuilder):
     def _load(self, dataset_type, config, *args, **kwargs):
         self.config = config
 
-        image_features = config["image_features"]["object"]
+        image_features = config["image_features"]["objects"]
         self.num_image_features = len(image_features)
 
         registry.register("num_image_features", self.num_image_features)

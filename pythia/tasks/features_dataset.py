@@ -109,7 +109,10 @@ class COCOFeaturesDataset(BaseFeaturesDataset):
 
     def __getitem__(self, idx):
         image_info = self.imdb[idx]
-        image_file_name = image_info["feature_path"]
+        if "feature_path" in image_info:
+            image_file_name = image_info["feature_path"]
+        else:
+            image_file_name = image_info['image_id'] + '.npy'
 
         image_features, infos = self._get_image_features_and_info(image_file_name)
 

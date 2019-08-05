@@ -67,10 +67,8 @@ class GQADataset(BaseDataset):
         if hasattr(self.config, "image_features"):
             self._use_features = True
             self.features_max_len = self.config.features_max_len
-
-            all_image_feature_dirs = self.config.image_features["objects"]
-            curr_image_features_dir = all_image_feature_dirs[imdb_file_index]
-            curr_image_features_dir = curr_image_features_dir.split(",")
+            all_image_feature_dirs = self.config.image_features["spatial"]
+            curr_image_features_dir = all_image_feature_dirs
             curr_image_features_dir = self._get_absolute_path(curr_image_features_dir)
 
             self.features_db = FeaturesDataset(

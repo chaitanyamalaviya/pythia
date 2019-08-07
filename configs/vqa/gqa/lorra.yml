@@ -57,10 +57,10 @@ model_attributes:
         params:
           out_dim: 1
     image_feature_encodings:
-    - type: finetune_faster_rcnn_fpn_fc7
-      params:
-        bias_file: detectron/fc6/fc7_b.pkl
-        weights_file: detectron/fc6/fc7_w.pkl
+    #- type: finetune_faster_rcnn_fpn_fc7
+    #  params:
+    #    bias_file: detectron/fc6/fc7_b.pkl
+    #    weights_file: detectron/fc6/fc7_w.pkl
     - type: default
       params: {}
     context_feature_encodings:

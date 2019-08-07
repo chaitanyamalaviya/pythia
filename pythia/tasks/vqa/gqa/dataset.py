@@ -151,7 +151,12 @@ class GQADataset(BaseDataset):
 
         # # Depending on whether we are using soft copy this can add
         # # dynamic answer space
-        # current_sample = self.add_answer_info(sample_info, current_sample)
+        current_sample = self.add_answer_info(sample_info, current_sample)
+
+        #import pdb; pdb.set_trace()
+        #order_vectors = torch.eye(self.config.context_max_len)
+        #order_vectors[self.config.context_max_len :] = 0
+        #current_sample.order_vectors = order_vectors
 
         return current_sample
 

@@ -35,7 +35,7 @@ task_attributes:
                     answer_processor:
                         type: vqa_answer
                         params:
-                            num_answers: 1
+                            num_answers: 10
                             # Vocab file is relative to [data_root_dir]/[data_folder]
                             vocab_file: GQA_PP/answers_gqa.txt
                             preprocessor:

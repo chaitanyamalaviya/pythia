@@ -79,7 +79,7 @@ class Losses(nn.Module):
         loss for each of the losses in `losses`.
 
         Args:
-            sample_list (SampleList): SampleList given be the dataloader.
+            sample_list (SampleList): SampleList given by the dataloader.
             model_output (Dict): Dict returned from model as output.
 
         Returns:

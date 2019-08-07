@@ -1,5 +1,5 @@
 includes:
-- common/defaults/configs/tasks/vqa/textvqa.yml
+- common/defaults/configs/tasks/vqa/gqa.yml
 model_attributes:
   ban:
     metrics:
@@ -51,8 +51,8 @@ training_parameters:
   warmup_factor: 0.2
   warmup_iterations: 1000
   patience: 4000
-  batch_size: 64
-  num_workers: 4
+  batch_size: 128
+  num_workers: 7
   task_size_proportional_sampling: true
   monitored_metric: vqa_accuracy
   metric_minimize: false

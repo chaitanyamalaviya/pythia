@@ -16,6 +16,11 @@ task_attributes:
                     - imdb/gqa/imdb_val_balanced.npy
                   test:
                     - imdb/gqa/imdb_test_balanced.npy
+                scene_graphs:
+                  train:
+                    - GQA/sceneGraphs/train_sceneGraphs.json
+                  val:
+                    - GQA/sceneGraphs/val_sceneGraphs.json
                 image_features:
                   objects:
                     - objects/

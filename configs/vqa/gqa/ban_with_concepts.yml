@@ -1,7 +1,7 @@
 includes:
 - common/defaults/configs/tasks/vqa/gqa.yml
 model_attributes:
-  ban:
+  ban_with_concepts:
     metrics:
     - vqa_accuracy
     losses:

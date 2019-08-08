@@ -40,6 +40,7 @@ class SceneGraphDatabase(torch.utils.data.Dataset):
                 for rel in objects[obj_id]["relations"]:
                     rel_name = rel["name"]
                     target_obj = obj_id2name[rel["object"]]
-                    image_assertions[img_id].append(obj_name + rel_name + target_obj)
+                    assertion = obj_name + " " + rel_name + " " + target_obj
+                    image_assertions[img_id].append(assertion.split(" "))
 
         return image_assertions

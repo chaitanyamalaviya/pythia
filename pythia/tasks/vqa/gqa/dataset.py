@@ -83,7 +83,9 @@ class GQADataset(BaseDataset):
 
         if hasattr(self.config, "scene_graphs"):
             self._use_scene_graphs = True
-            path = self.config.scene_graphs[dataset_type]
+            if dataset_type == "test": dataset_type="val"
+            path = self.config.scene_graphs[dataset_type][0]
+            path = self._get_absolute_path(path)
             self.scene_graphs_db = SceneGraphDatabase(
                 path
             )
@@ -132,10 +134,9 @@ class GQADataset(BaseDataset):
         current_sample = Sample()
 
         text_processor_argument = {"tokens": sample_info["question_tokens"]}
-
         processed_question = self.text_processor(text_processor_argument)
-
         current_sample.text = processed_question["text"]
+
         q_id = int(sample_info["question_id"])
         current_sample.question_id = torch.tensor(
             q_id, dtype=torch.int
@@ -158,10 +159,12 @@ class GQADataset(BaseDataset):
             current_sample.update(features)
 
         if self._use_scene_graphs is True:
-            scene_graph = self.scene_graphs_db[current_sample.image_id]
-            text_processor_argument = {"tokens": scene_graph}
-            processed_question = self.text_processor(text_processor_argument)
-            current_sample["scene_graph"] = processed_question["text"]
+            scene_graph = self.scene_graphs_db[sample_info["image_id"]]
+            current_sample["scene_graph"] = []
+            for assertion in scene_graph:
+                text_processor_argument = {"tokens": assertion}
+                processed_question = self.text_processor(text_processor_argument)
+                current_sample["scene_graph"].append(processed_question["text"])
 
         # # Depending on whether we are using soft copy this can add
         # # dynamic answer space

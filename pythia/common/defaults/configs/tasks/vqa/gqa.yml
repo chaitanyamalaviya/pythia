@@ -30,11 +30,12 @@ task_attributes:
                     text_processor:
                         type: vocab
                         params:
-                            max_length: 14
-                            vocab:
-                                type: random
-                                vocab_file: GQA_PP/vocabulary_gqa.txt
-                        preprocessor:
+                          max_length: 14
+                          vocab:
+                            type: intersected
+                            embedding_name: glove.6B.300d
+                            vocab_file: GQA_PP/vocabulary_gqa.txt
+                          preprocessor:
                             type: simple_sentence
                             params: {}
                     answer_processor:

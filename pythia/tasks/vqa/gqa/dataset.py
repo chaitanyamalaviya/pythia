@@ -12,6 +12,7 @@ from pythia.tasks.base_dataset import BaseDataset
 from pythia.utils.general import get_pythia_root
 from pythia.tasks.features_dataset import FeaturesDataset
 from pythia.tasks.image_database import ImageDatabase
+from pythia.tasks.scene_graph_dataset import SceneGraphDatabase
 from pythia.utils.text_utils import VocabFromText, tokenize
 from pythia.utils.distributed_utils import is_main_process, synchronize
 
@@ -80,6 +81,13 @@ class GQADataset(BaseDataset):
                 imdb=self.imdb,
             )
 
+        if hasattr(self.config, "scene_graphs"):
+            self._use_scene_graphs = True
+            path = self.config.scene_graphs[dataset_type]
+            self.scene_graphs_db = SceneGraphDatabase(
+                path
+            )
+
     def _get_absolute_path(self, paths):
         if isinstance(paths, list):
             return [self._get_absolute_path(path) for path in paths]
@@ -133,13 +141,13 @@ class GQADataset(BaseDataset):
             q_id, dtype=torch.int
         )
 
-        img_id = int(sample_info["image_id"])
-        if isinstance(img_id, int):
+        if str.isdigit(sample_info["image_id"]):
+            img_id = int(sample_info["image_id"])
             current_sample.image_id = torch.tensor(
                 img_id, dtype=torch.int
             )
         else:
-            current_sample.image_id = img_id
+            current_sample.image_id = sample_info["image_id"]
 
         current_sample.text_len = torch.tensor(
             len(sample_info["question_tokens"]), dtype=torch.int
@@ -148,6 +156,12 @@ class GQADataset(BaseDataset):
         if self._use_features is True:
             features = self.features_db[idx]
             current_sample.update(features)
+
+        if self._use_scene_graphs is True:
+            scene_graph = self.scene_graphs_db[current_sample.image_id]
+            text_processor_argument = {"tokens": scene_graph}
+            processed_question = self.text_processor(text_processor_argument)
+            current_sample["scene_graph"] = processed_question["text"]
 
         # # Depending on whether we are using soft copy this can add
         # # dynamic answer space

@@ -85,7 +85,7 @@ class BAN_with_Concepts(BaseModel):
 
         v = sample_list.image_feature_0
         q = self.word_embedding(sample_list.text)
-        c = self.word_embedding(sample_list.concepts)
+        c = self.word_embedding(sample_list.scene_graph)
 
         q_emb = self.q_emb.forward_all(q)
         c_emb = self.q_emb.forward_all(c)

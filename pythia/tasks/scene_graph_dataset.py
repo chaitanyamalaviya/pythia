@@ -31,15 +31,15 @@ class SceneGraphDatabase(torch.utils.data.Dataset):
         image_assertions = {}
         for img_id in self.scene_graphs_db.keys():
             image_assertions[img_id] = []
-            image_objects = {}
-            for obj_id in self.scene_graphs_db[img_id]["objects"].keys():
-                image_objects[obj_id] = self.scene_graphs_db[img_id]["objects"][obj_id]["name"]
-            for obj_id in self.scene_graphs_db[img_id]["objects"].keys():
-                obj_name = self.scene_graphs_db[img_id]["objects"][obj_id]
-                for rel in self.scene_graphs_db[img_id]["objects"][obj_id]["relations"]:
+            obj_id2name = {}
+            objects = self.scene_graphs_db[img_id]["objects"]
+            for obj_id in objects.keys():
+                obj_id2name[obj_id] = objects[obj_id]["name"]
+            for obj_id in objects.keys():
+                obj_name = objects[obj_id]["name"]
+                for rel in objects[obj_id]["relations"]:
                     rel_name = rel["name"]
-                    target_obj = image_objects[rel["object"]]
+                    target_obj = obj_id2name[rel["object"]]
                     image_assertions[img_id].append(obj_name + rel_name + target_obj)
 
         return image_assertions
-

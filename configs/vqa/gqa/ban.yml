@@ -7,7 +7,7 @@ model_attributes:
     losses:
     - type: logit_bce
     text_embedding:
-      num_hidden: 1280
+      num_hidden: 1024
       vocab_size: 1280
       emb_size: 300
       num_layers: 1

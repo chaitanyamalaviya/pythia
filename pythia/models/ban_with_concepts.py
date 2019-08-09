@@ -85,12 +85,15 @@ class BAN_with_Concepts(BaseModel):
 
         v = sample_list.image_feature_0
         q = self.word_embedding(sample_list.text)
-        c = self.word_embedding(sample_list.scene_graph)
+         
+        scene_graph_input = [torch.stack(elem) for elem in sample_list.scene_graph]
+        num_assertions = [elem.size(0) for elem in scene_graph_input]
+        scene_graph_input = torch.cat(scene_graph_input, dim=0)
+
+        c = self.word_embedding(scene_graph_input)
 
         q_emb = self.q_emb.forward_all(q)
         c_emb = self.q_emb.forward_all(c)
-
-        # Provide c_emb_weighted as input
 
         b_emb = [0] * self.config["bilinear_attention"]["gamma"]
         att, logits = self.v_att.forward_all(v, q_emb)
@@ -102,6 +105,7 @@ class BAN_with_Concepts(BaseModel):
 
         q_emb_sum = q_emb.sum(1)
 
+        # Provide c_emb_weighted as input
         if self.config["concept_attention"]["attn_type"] == "dot":
             attn_scores = torch.dot(q_emb_sum, c_emb)
             attn_probs = F.softmax(attn_scores)
@@ -112,6 +116,6 @@ class BAN_with_Concepts(BaseModel):
 
         c_emb_weighted = attn_probs * c_emb
 
-        logits = self.classifier(torch.cat(q_emb_sum, c_emb_weighted))
+        logits = self.classifier(torch.cat((q_emb_sum, c_emb_weighted), dim=1))
 
         return {"scores": logits}

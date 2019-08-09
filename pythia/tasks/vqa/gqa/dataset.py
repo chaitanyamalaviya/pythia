@@ -165,6 +165,7 @@ class GQADataset(BaseDataset):
                 text_processor_argument = {"tokens": assertion}
                 processed_question = self.text_processor(text_processor_argument)
                 current_sample["scene_graph"].append(processed_question["text"])
+            #current_sample["scene_graph"] = torch.cat(current_sample["scene_graph"], dim=0)
 
         # # Depending on whether we are using soft copy this can add
         # # dynamic answer space

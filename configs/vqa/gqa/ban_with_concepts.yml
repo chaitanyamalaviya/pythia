@@ -7,7 +7,7 @@ model_attributes:
     losses:
     - type: logit_bce
     text_embedding:
-      num_hidden: 1280
+      num_hidden: 1024
       vocab_size: 1280
       emb_size: 300
       num_layers: 1
@@ -55,8 +55,8 @@ training_parameters:
   warmup_iterations: 1000
   patience: 4000
   batch_size: 128
-  num_workers: 7
-  task_size_proportional_sampling: true
+  num_workers: 0
+  task_size_proportional_sampling: false
   monitored_metric: vqa_accuracy
   metric_minimize: false
 

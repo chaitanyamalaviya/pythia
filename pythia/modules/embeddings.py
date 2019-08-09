@@ -89,8 +89,8 @@ class BiLSTMTextEmbedding(nn.Module):
         if self.bidirectional:
             return out[:, -1]
 
-        forward_ = out[:, -1, : self.num_hid]
-        backward = out[:, 0, self.num_hid :]
+        forward_ = out[:, -1, : self.text_out_dim]
+        backward = out[:, 0, self.text_out_dim :]
         return torch.cat((forward_, backward), dim=1)
 
     def forward_all(self, x):

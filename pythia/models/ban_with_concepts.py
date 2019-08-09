@@ -86,14 +86,14 @@ class BAN_with_Concepts(BaseModel):
         v = sample_list.image_feature_0
         q = self.word_embedding(sample_list.text)
          
-        scene_graph_input = [torch.stack(elem) for elem in sample_list.scene_graph]
+        scene_graph_input = [torch.stack(elem) if elem else torch.LongTensor([]) for elem in sample_list.scene_graph]
         num_assertions = [elem.size(0) for elem in scene_graph_input]
-        scene_graph_input = torch.cat(scene_graph_input, dim=0)
+        scene_graph_input = torch.cat(scene_graph_input, dim=0).cuda()
 
         c = self.word_embedding(scene_graph_input)
 
         q_emb = self.q_emb.forward_all(q)
-        c_emb = self.q_emb.forward_all(c)
+        c_emb = self.q_emb.forward(c)
 
         b_emb = [0] * self.config["bilinear_attention"]["gamma"]
         att, logits = self.v_att.forward_all(v, q_emb)
@@ -104,18 +104,23 @@ class BAN_with_Concepts(BaseModel):
             q_emb = self.q_prj[g](b_emb[g].unsqueeze(1)) + q_emb
 
         q_emb_sum = q_emb.sum(1)
+        split_c_emb = c_emb.split(num_assertions, dim=0)
 
-        # Provide c_emb_weighted as input
         if self.config["concept_attention"]["attn_type"] == "dot":
-            attn_scores = torch.dot(q_emb_sum, c_emb)
-            attn_probs = F.softmax(attn_scores)
+            c_emb_weighted_sum = []
+            for i, curr_assertions in enumerate(split_c_emb):
+                attn_scores = torch.mm(curr_assertions, q_emb_sum[i].unsqueeze(1))
+                attn_probs = F.softmax(attn_scores, dim=0)
+                c_emb_weighted = attn_probs * curr_assertions
+                c_emb_weighted_sum.append(c_emb_weighted.sum(0))
+
 
         elif self.config["concept_attention"]["attn_type"] == "bilinear":
             attn_scores = self.concept_bilinear(q_emb_sum, c_emb)
-            attn_probs = F.softmax(attn_scores)
 
-        c_emb_weighted = attn_probs * c_emb
+        #c_emb_weighted = torch.bmm(attn_probs, c_emb)
 
-        logits = self.classifier(torch.cat((q_emb_sum, c_emb_weighted), dim=1))
+        c_emb_weighted_sum = torch.stack(c_emb_weighted_sum, dim=0)
+        logits = self.classifier(torch.cat((q_emb_sum, c_emb_weighted_sum), dim=1))
 
         return {"scores": logits}

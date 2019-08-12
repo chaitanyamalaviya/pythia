@@ -20,7 +20,8 @@ class TestReporter(Dataset):
         self.task_type = multi_task_instance.dataset_type
         self.config = registry.get("config")
         self.writer = registry.get("writer")
-        self.report = []
+        self.report = {}
+        self.report["results"] = []
         self.timer = Timer()
         self.training_parameters = self.config["training_parameters"]
         self.num_workers = self.training_parameters["num_workers"]
@@ -87,7 +88,8 @@ class TestReporter(Dataset):
         self.writer.write(
             "Wrote evalai predictions for %s to %s" % (name, os.path.abspath(filepath))
         )
-        self.report = []
+        self.report = {}
+        self.report["results"] = []
 
     def get_dataloader(self):
         other_args = self._add_extra_args_for_dataloader()
@@ -140,11 +142,11 @@ class TestReporter(Dataset):
             report.image_id = gather_tensor(report.image_id).view(-1)
         else:
             report.scores = gather_tensor(report.scores).view(-1, report.scores.size(-1))
-            report.question_id = gather_tensor(report.question_id).view(-1)
+            #report.question_id = gather_tensor(report.question_id).view(-1)
 
         if not is_main_process():
             return
 
         results = self.current_dataset.format_for_evalai(report)
 
-        self.report = self.report + results
+        self.report["results"] = self.report["results"] + results

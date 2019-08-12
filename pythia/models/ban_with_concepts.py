@@ -85,7 +85,7 @@ class BAN_with_Concepts(BaseModel):
 
         v = sample_list.image_feature_0
         q = self.word_embedding(sample_list.text)
-         
+
         scene_graph_input = [torch.stack(elem).cuda() if elem else torch.LongTensor([]).cuda() for elem in sample_list.scene_graph]
         num_assertions = [elem.size(0) for i, elem in enumerate(scene_graph_input)]
         #idxs_sorted =  sorted(num_assertions, key=lambda x: x[0])
@@ -127,10 +127,55 @@ class BAN_with_Concepts(BaseModel):
 
 
     def get_embs_batchwise(self, c, batch_size=128):
-        
+
         c_embs = []
         for i in range(0, c.size(0), batch_size):
             c_emb = self.q_emb.forward(c[i : i+batch_size])
             c_embs.append(c_emb)
 
         return torch.cat(c_embs, dim=0)
+
+    def forward_alt(self, sample_list):
+
+        v = sample_list.image_feature_0
+        q = self.word_embedding(sample_list.text)
+
+        scene_graph_input = [torch.stack(elem).cuda() if elem else torch.LongTensor([]).cuda() for elem in
+                             sample_list.scene_graph]
+        num_assertions = [elem.size(0) for i, elem in enumerate(scene_graph_input)]
+        # idxs_sorted =  sorted(num_assertions, key=lambda x: x[0])
+        scene_graph_input = torch.cat(scene_graph_input, dim=0).cuda()
+
+        c = self.word_embedding(scene_graph_input)
+
+        q_emb = self.q_emb.forward_all(q)
+        c_emb = self.get_embs_batchwise(c)
+
+        b_emb = [0] * self.config["bilinear_attention"]["gamma"]
+        att, logits = self.v_att.forward_all(v, q_emb)
+
+        for g in range(self.config["bilinear_attention"]["gamma"]):
+            g_att = att[:, g, :, :]
+            b_emb[g] = self.b_net[g].forward_with_weights(v, q_emb, g_att)
+            q_emb = self.q_prj[g](b_emb[g].unsqueeze(1)) + q_emb
+
+        q_emb_sum = q_emb.sum(1)
+        split_c_emb = c_emb.split(num_assertions, dim=0)
+
+        if self.config["concept_attention"]["attn_type"] == "dot":
+            c_emb_weighted_sum = []
+            for i, curr_assertions in enumerate(split_c_emb):
+                attn_scores = torch.mm(curr_assertions, q_emb_sum[i].unsqueeze(1))
+                attn_probs = F.softmax(attn_scores, dim=0)
+                c_emb_weighted = attn_probs * curr_assertions
+                c_emb_weighted_sum.append(c_emb_weighted.sum(0))
+
+        elif self.config["concept_attention"]["attn_type"] == "bilinear":
+            attn_scores = self.concept_bilinear(q_emb_sum, c_emb)
+
+        # c_emb_weighted = torch.bmm(attn_probs, c_emb)
+
+        c_emb_weighted_sum = torch.stack(c_emb_weighted_sum, dim=0)
+        logits = self.classifier(torch.cat((q_emb_sum, c_emb_weighted_sum), dim=1))
+
+        return {"scores": logits}

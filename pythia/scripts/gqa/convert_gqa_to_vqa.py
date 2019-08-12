@@ -10,7 +10,7 @@ import numpy as np
 import tqdm
 
 from pythia.utils.process_answers import preprocess_answer
-from pythia.utils.text_processing import text_tokenize as tokenize
+from pythia.utils.text_utils import tokenize
 
 
 def merge_train(train_q_dir):
@@ -150,7 +150,7 @@ def convert_gqa_to_vqa(gqa_dir, out_dir):
     image_feat_path = os.path.join(gqa_dir, "images")
     extract_image_features(image_feat_path, out_dir)
 
-    questions_dir = os.path.join(gqa_dir, "questions")
+    questions_dir = os.path.join(gqa_dir, "questions1.2")
 
     if os.path.isfile(os.path.join(questions_dir, "train_all_questions.json")):
         print("Using previously generated train_all_questions.json file")
@@ -162,6 +162,7 @@ def convert_gqa_to_vqa(gqa_dir, out_dir):
         "val": "val_all_questions.json",
         "challenge": "challenge_all_questions.json",
         "train": "train_all_questions.json",
+        "testdev": "testdev_all_questions.json"
     }
 
     for split in split_mapping:
@@ -177,6 +178,7 @@ def convert_gqa_to_vqa(gqa_dir, out_dir):
 
             save_path = os.path.join(out_dir, "imdb_{}.npy".format(csplit))
             np.save(save_path, imdb)
+  
 
     splits = ["val", "train"]
     split_type = ["balanced", "all"]

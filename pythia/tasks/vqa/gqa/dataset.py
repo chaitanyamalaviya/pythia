@@ -81,7 +81,8 @@ class GQADataset(BaseDataset):
                 imdb=self.imdb,
             )
 
-        if hasattr(self.config, "scene_graphs"):
+        self._use_scene_graphs = False
+        if self.config["use_scene_graphs"]:
             self._use_scene_graphs = True
             if dataset_type == "test": dataset_type="val"
             path = self.config.scene_graphs[dataset_type][0]
@@ -137,18 +138,19 @@ class GQADataset(BaseDataset):
         processed_question = self.text_processor(text_processor_argument)
         current_sample.text = processed_question["text"]
 
-        q_id = int(sample_info["question_id"])
-        current_sample.question_id = torch.tensor(
-            q_id, dtype=torch.int
-        )
+        #q_id = int(sample_info["question_id"])
+        #current_sample.question_id = torch.tensor(
+        #    q_id, dtype=torch.int
+        #)
+        current_sample.question_id = sample_info["question_id"]
 
-        if str.isdigit(sample_info["image_id"]):
-            img_id = int(sample_info["image_id"])
-            current_sample.image_id = torch.tensor(
-                img_id, dtype=torch.int
-            )
-        else:
-            current_sample.image_id = sample_info["image_id"]
+        #if str.isdigit(sample_info["image_id"]):
+        #    img_id = int(sample_info["image_id"])
+        #    current_sample.image_id = torch.tensor(
+        #        img_id, dtype=torch.int
+        #    )
+        #else:
+        current_sample.image_id = sample_info["image_id"]
 
         current_sample.text_len = torch.tensor(
             len(sample_info["question_tokens"]), dtype=torch.int
@@ -158,7 +160,7 @@ class GQADataset(BaseDataset):
             features = self.features_db[idx]
             current_sample.update(features)
 
-        if self._use_scene_graphs is True:
+        if self._use_scene_graphs:
             scene_graph = self.scene_graphs_db[sample_info["image_id"]]
             current_sample["scene_graph"] = []
             for assertion in scene_graph:
@@ -192,3 +194,25 @@ class GQADataset(BaseDataset):
 
     def idx_to_answer(self, idx):
         return self.answer_processor.convert_idx_to_answer(idx)
+
+
+    def format_for_evalai(self, report):
+        answers = report.scores.argmax(dim=1)
+
+        predictions = []
+        answer_space_size = self.answer_processor.get_true_vocab_size()
+
+        for idx, question_id in enumerate(report.question_id):
+            answer_id = answers[idx].item()
+
+            if answer_id >= answer_space_size:
+                answer_id -= answer_space_size
+                answer = report.context_tokens[idx][answer_id]
+            else:
+                answer = self.answer_processor.idx2word(answer_id)
+            if answer == self.text_processor.PAD_TOKEN:
+                answer = "unanswerable"
+
+            predictions.append({"questionId": question_id, "prediction": answer})
+
+        return predictions

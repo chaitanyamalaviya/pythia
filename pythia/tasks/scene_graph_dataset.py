@@ -37,6 +37,8 @@ class SceneGraphDatabase(torch.utils.data.Dataset):
                 obj_id2name[obj_id] = objects[obj_id]["name"]
             for obj_id in objects.keys():
                 obj_name = objects[obj_id]["name"]
+                for attr in objects[obj_id]["attributes"]:
+                    image_assertions[img_id].append(attr + " " + obj_name)
                 for rel in objects[obj_id]["relations"]:
                     rel_name = rel["name"]
                     target_obj = obj_id2name[rel["object"]]

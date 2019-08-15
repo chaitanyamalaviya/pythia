@@ -162,7 +162,8 @@ def convert_gqa_to_vqa(gqa_dir, out_dir):
         "val": "val_all_questions.json",
         "challenge": "challenge_all_questions.json",
         "train": "train_all_questions.json",
-        "testdev": "testdev_all_questions.json"
+        "testdev": "testdev_all_questions.json",
+        "submission": "submission_all_questions.json"
     }
 
     for split in split_mapping:
@@ -178,7 +179,7 @@ def convert_gqa_to_vqa(gqa_dir, out_dir):
 
             save_path = os.path.join(out_dir, "imdb_{}.npy".format(csplit))
             np.save(save_path, imdb)
-  
+ 
 
     splits = ["val", "train"]
     split_type = ["balanced", "all"]

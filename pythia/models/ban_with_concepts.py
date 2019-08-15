@@ -81,14 +81,18 @@ class BAN_with_Concepts(BaseModel):
             num_hidden*2, num_choices, num_hidden * 2, dropout
         )
 
-    def forward(self, sample_list):
+    def forward(self, sample_list, print_concepts=False):
 
         v = sample_list.image_feature_0
         q = self.word_embedding(sample_list.text)
 
+        if print_concepts:
+            scene_graph_text = self.get_text(sample_list.scene_graph, scene_graph=True)
+            question_words = self.get_text(sample_list.text)
         scene_graph_input = [torch.stack(elem).cuda() if elem else torch.LongTensor([]).cuda() for elem in sample_list.scene_graph]
         num_assertions = [elem.size(0) for i, elem in enumerate(scene_graph_input)]
         #idxs_sorted =  sorted(num_assertions, key=lambda x: x[0])
+
         scene_graph_input = torch.cat(scene_graph_input, dim=0).cuda()
 
         c = self.word_embedding(scene_graph_input)
@@ -106,12 +110,14 @@ class BAN_with_Concepts(BaseModel):
 
         q_emb_sum = q_emb.sum(1)
         split_c_emb = c_emb.split(num_assertions, dim=0)
+        topk_idxs = []
 
         if self.config["concept_attention"]["attn_type"] == "dot":
             c_emb_weighted_sum = []
             for i, curr_assertions in enumerate(split_c_emb):
                 attn_scores = torch.mm(curr_assertions, q_emb_sum[i].unsqueeze(1))
                 attn_probs = F.softmax(attn_scores, dim=0)
+                topk_idxs.append(torch.topk(attn_probs, k=min(5, num_assertions[i]), dim=0)[1])
                 c_emb_weighted = attn_probs * curr_assertions
                 c_emb_weighted_sum.append(c_emb_weighted.sum(0))
 
@@ -123,8 +129,10 @@ class BAN_with_Concepts(BaseModel):
         c_emb_weighted_sum = torch.stack(c_emb_weighted_sum, dim=0)
         logits = self.classifier(torch.cat((q_emb_sum, c_emb_weighted_sum), dim=1))
 
-        return {"scores": logits}
+        if print_concepts:
+            self.print_top_concepts(question_words, scene_graph_text, topk_idxs)
 
+        return {"scores": logits}
 
     def get_embs_batchwise(self, c, batch_size=128):
 
@@ -179,3 +187,28 @@ class BAN_with_Concepts(BaseModel):
         logits = self.classifier(torch.cat((q_emb_sum, c_emb_weighted_sum), dim=1))
 
         return {"scores": logits}
+
+    def get_text(self, word_ids, scene_graph=False):
+
+        text_processor = registry.get(self._datasets[0] + "_text_processor")
+        vocab = text_processor.vocab
+        idx2word = {v:k for k,v in vocab.vocab.word_dict.items()}
+        all_words = []
+        for word_seq in word_ids:
+            curr_words = []
+            if scene_graph:
+                for assertion in word_seq:
+                    words = [idx2word[elem.cpu().item()] for elem in assertion if idx2word[elem.cpu().item()]!="<pad>"]
+                    curr_words.append(words)
+                all_words.append(curr_words)
+            else:
+                words = [idx2word[elem.cpu().item()] for elem in word_seq if elem.nelement()!=0 and idx2word[elem.cpu().item()]!="<pad>"]
+                all_words.append(words)
+        return all_words
+
+    def print_top_concepts(self, question_words, scene_graph_words, topk_idxs):
+        for i, question in enumerate(question_words):
+            print("\nQuestion:")
+            print(" ".join(question))
+            for idx in topk_idxs[i]:
+                print(" ".join(scene_graph_words[i][idx.cpu().item()]))

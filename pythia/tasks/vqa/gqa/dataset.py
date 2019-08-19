@@ -178,6 +178,8 @@ class GQADataset(BaseDataset):
             #current_sample["scene_graph"] = torch.cat(current_sample["scene_graph"], dim=0)
 
         current_sample["object_classes"] = self.object_classes[sample_info["image_id"]]
+        current_sample["rel_dict"] = self.scene_graphs_db.rel_dict
+        current_sample["attr_dict"] = self.scene_graphs_db.attr_dict
 
         # # Depending on whether we are using soft copy this can add
         # # dynamic answer space

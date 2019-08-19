@@ -27,7 +27,7 @@ class ConceptDiscriminator:
             num_hidden * 2, 1, num_hidden * 2, dropout
         )
 
-    def sample_plausible_concepts(self, object_ids, gold_concepts=None):
+    def sample_plausible_concepts(self, object_ids, rel_dict, attr_dict, gold_concepts=None):
         plausible_concepts = []
         targets = None
         threshold = 0.6
@@ -37,9 +37,9 @@ class ConceptDiscriminator:
                 final_objects.append(obj[0])
 
         for obj_pair in itertools.product(final_objects, repeat=2):
-            relations = self.dataset.scene_graphs_db.find_seen_relations(*obj_pair)
-            attr1 = self.dataset.scene_graphs_db.find_seen_attributes(obj_pair[0])
-            attr2 = self.dataset.scene_graphs_db.find_seen_attributes(obj_pair[1])
+            relations = self.find_seen_relations(rel_dict, *obj_pair)
+            attr1 = self.find_seen_attributes(attr_dict, obj_pair[0])
+            attr2 = self.find_seen_attributes(attr_dict, obj_pair[1])
             plausible_concepts += [obj_pair[0] + " " + rel + " " + obj_pair[1] for rel in relations]
             plausible_concepts += [attr + " " + obj_pair[0] for attr in attr1]
             plausible_concepts += [attr + " " + obj_pair[1] for attr in attr2]
@@ -85,3 +85,13 @@ class ConceptDiscriminator:
 
     def filter_topk_concepts(self, scores, k=100):
         return torch.topk(scores, k, dim=1)
+
+    def find_seen_relations(self, rel_dict, obj1, obj2):
+        if (obj1, obj2) in rel_dict:
+            return rel_dict[(obj1, obj2)]
+        return None
+
+    def find_seen_attributes(self, attr_dict, obj):
+        if obj in attr_dict:
+            return attr_dict[obj]
+        return None

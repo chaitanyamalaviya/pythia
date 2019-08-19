@@ -126,7 +126,7 @@ def parse_args():
         "--bbox_file", help="csv file from bottom-up attention model", default=None
     )
     parser.add_argument(
-        "--total_group", help="the number of group for exracting", type=int, default=1
+        "--total_group", help="the number of group for extracting", type=int, default=1
     )
     parser.add_argument(
         "--group_id",

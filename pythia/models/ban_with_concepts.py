@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 from pythia.common.registry import registry
 from pythia.models.base_model import BaseModel
+from pythia.models.concept_discriminator import ConceptDiscriminator
 from pythia.modules.embeddings import BiLSTMTextEmbedding
 from pythia.modules.layers import (BCNet, BiAttention, FCNet,
                                    WeightNormClassifier)
@@ -25,7 +26,8 @@ class BAN_with_Concepts(BaseModel):
         self._init_bilinear_attention()
         if self.config["concept_attention"]["attn_type"] == "bilinear":
             num_hidden = self.config["text_embedding"]["num_hidden"]
-            self.concept_bilinear = nn.Bilinear(num_hidden)
+            self.concept_bilinear = nn.Bilinear(num_hidden*2, num_hidden*2, num_hidden)
+        self.concept_discriminator = ConceptDiscriminator(self.config, self.word_embedding)
 
     def _build_word_embedding(self):
         text_processor = registry.get(self._datasets[0] + "_text_processor")
@@ -83,16 +85,21 @@ class BAN_with_Concepts(BaseModel):
 
     def forward(self, sample_list, print_concepts=False):
 
+        plausible_concepts, targets = self.concept_discriminator.sample_plausible_concepts(sample_list.object_classes,
+                                                                                           sample_list.scene_graph)
+        plausible_concept_scores = self.concept_discriminator.forward(sample_list, plausible_concepts=plausible_concepts)
+        # If sample_list.scene_graph is specified, use that. Else, use plausible concepts
+
         v = sample_list.image_feature_0
         q = self.word_embedding(sample_list.text)
 
         if print_concepts:
             scene_graph_text = self.get_text(sample_list.scene_graph, scene_graph=True)
             question_words = self.get_text(sample_list.text)
-        scene_graph_input = [torch.stack(elem).cuda() if elem else torch.LongTensor([]).cuda() for elem in sample_list.scene_graph]
-        num_assertions = [elem.size(0) for i, elem in enumerate(scene_graph_input)]
-        #idxs_sorted =  sorted(num_assertions, key=lambda x: x[0])
 
+        scene_graph_input = [torch.stack(elem).cuda() if elem else torch.LongTensor([]).cuda()
+                             for elem in sample_list.scene_graph]
+        num_assertions = [elem.size(0) for i, elem in enumerate(scene_graph_input)]
         scene_graph_input = torch.cat(scene_graph_input, dim=0).cuda()
 
         c = self.word_embedding(scene_graph_input)
@@ -132,7 +139,7 @@ class BAN_with_Concepts(BaseModel):
         if print_concepts:
             self.print_top_concepts(question_words, scene_graph_text, topk_idxs)
 
-        return {"scores": logits}
+        return {"scores": logits, "concept_scores": plausible_concept_scores["concept_scores"], "concept_targets": targets}
 
     def get_embs_batchwise(self, c, batch_size=128):
 

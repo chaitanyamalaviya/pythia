@@ -13,6 +13,7 @@ from pythia.utils.general import get_pythia_root
 from pythia.tasks.features_dataset import FeaturesDataset
 from pythia.tasks.image_database import ImageDatabase
 from pythia.tasks.scene_graph_dataset import SceneGraphDatabase
+from pythia.tasks.object_class_dataset import ObjectClassDatabase
 from pythia.utils.text_utils import VocabFromText, tokenize
 from pythia.utils.distributed_utils import is_main_process, synchronize
 
@@ -88,6 +89,13 @@ class GQADataset(BaseDataset):
             path = self.config.scene_graphs[dataset_type][0]
             path = self._get_absolute_path(path)
             self.scene_graphs_db = SceneGraphDatabase(
+                path
+            )
+
+        if hasattr(self.config, "object_classes"):
+            path = self.config.object_classes[0]
+            path = self._get_absolute_path(path)
+            self.object_classes = ObjectClassDatabase(
                 path
             )
 
@@ -168,6 +176,8 @@ class GQADataset(BaseDataset):
                 processed_question = self.text_processor(text_processor_argument)
                 current_sample["scene_graph"].append(processed_question["text"])
             #current_sample["scene_graph"] = torch.cat(current_sample["scene_graph"], dim=0)
+
+        current_sample["object_classes"] = self.object_classes[sample_info["image_id"]]
 
         # # Depending on whether we are using soft copy this can add
         # # dynamic answer space

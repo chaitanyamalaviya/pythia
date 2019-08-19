@@ -26,6 +26,8 @@ task_attributes:
                     - objects/
                   spatial:
                     - GQA_PP/spatial/
+                object_classes:
+                  - gqa_image_classes.json
                 processors:
                     text_processor:
                         type: vocab
